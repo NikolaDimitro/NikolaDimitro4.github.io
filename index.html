@@ -31,10 +31,30 @@ button {
     cursor: pointer;
     margin: 5px;
 }
+.phone .container {
+    max-width: 300px;
+    font-size: 14px;
+}
+
+.tablet .container {
+    max-width: 600px;
+    font-size: 16px;
+}
+
+.pc .container {
+    max-width: 900px;
+    font-size: 18px;
+}
 </style>
 </head>
 
 <body>
+<div id="deviceSelector" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
+    <h2>Избери устройство</h2>
+    <button onclick="setDevice('phone')">📱 Телефон</button>
+    <button onclick="setDevice('tablet')">📟 Таблет</button>
+    <button onclick="setDevice('pc')">💻 Компютър</button>
+</div>
 
 <div class="container">
     <h1>☁️ My Cloud</h1>
@@ -144,6 +164,23 @@ async function downloadFile(url, fileName) {
 
 // start
 loadFiles();
+function setDevice(type) {
+    document.body.classList.remove("phone", "tablet", "pc");
+    document.body.classList.add(type);
+
+    document.getElementById("deviceSelector").style.display = "none";
+
+    localStorage.setItem("device", type);
+}
+
+// при зареждане
+const savedDevice = localStorage.getItem("device");
+
+if (savedDevice) {
+    setDevice(savedDevice);
+} else {
+    document.getElementById("deviceSelector").style.display = "flex";
+}
 </script>
 
 </body>
