@@ -58,10 +58,12 @@ button {
 </div>
 
 <!-- Login -->
-<div id="loginScreen" style="position:fixed; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
+<div id="loginScreen">
     <h2>Вход</h2>
-    <input id="username" placeholder="Име">
-    <button onclick="login()">Влез</button>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="signUp()">Регистрация</button>
+    <button onclick="signIn()">Вход</button>
 </div>
 
 <div class="container">
@@ -86,31 +88,56 @@ button {
 const supabaseUrl = "https://jniiizemwddovvufyxth.supabase.co";
 const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
 
-let currentUser = "";
-
 const { createClient } = supabase;
 const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-// LOGIN
-function login() {
-    const name = document.getElementById("username").value.trim();
-    if (!name) return alert("Въведи име");
+let currentUser = "";
 
-    currentUser = name;
-    localStorage.setItem("user", name);
+// ================= LOGIN (ИСТИНСКИ) =================
 
+async function signUp() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) return alert(error.message);
+
+    alert("Регистриран успешно!");
+}
+
+async function signIn() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email, password
+    });
+
+    if (error) return alert(error.message);
+
+    currentUser = data.user.id;
     document.getElementById("loginScreen").style.display = "none";
+
     loadFiles();
 }
 
-// user
-const savedUser = localStorage.getItem("user");
-if (savedUser) {
-    currentUser = savedUser;
-    document.getElementById("loginScreen").style.display = "none";
+async function logout() {
+    await supabaseClient.auth.signOut();
+    location.reload();
 }
 
-// Upload
+// AUTO LOGIN
+(async () => {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session) {
+        currentUser = data.session.user.id;
+        document.getElementById("loginScreen").style.display = "none";
+        loadFiles();
+    }
+})();
+
+// ================= UPLOAD =================
+
 async function uploadFile() {
     const file = document.getElementById("fileInput").files[0];
     if (!file) return;
@@ -124,7 +151,8 @@ async function uploadFile() {
     loadFiles();
 }
 
-// Load
+// ================= LOAD FILES =================
+
 async function loadFiles() {
     if (!currentUser) return;
 
@@ -141,13 +169,6 @@ async function loadFiles() {
     .filter(file => file.name.toLowerCase().includes(search))
     .forEach(file => {
 
-        // LOCK
-        const locked = localStorage.getItem("lock_" + file.name);
-        if (locked) {
-            const pass = prompt("Файлът е заключен:");
-            if (pass !== locked) return;
-        }
-
         const { data: urlData } = supabaseClient.storage
             .from('files')
             .getPublicUrl(currentUser + "/" + file.name);
@@ -161,7 +182,7 @@ async function loadFiles() {
             <b>${file.name}</b><br>
             <a href="${url}" target="_blank">🔗 Отвори</a>
             <button onclick="downloadFile('${url}', '${file.name}')">⬇️ Изтегли</button>
-            <button onclick="lockFile('${file.name}')">🔐 Заключи</button>
+            <button onclick="shareFile('${file.name}')">🔗 Сподели</button>
             <button onclick="deleteFile('${file.name}')">🗑️ Изтрий</button>
         `;
 
@@ -169,14 +190,19 @@ async function loadFiles() {
     });
 }
 
-// LOCK
-function lockFile(fileName) {
-    const pass = prompt("Парола:");
-    if (!pass) return;
-    localStorage.setItem("lock_" + fileName, pass);
+// ================= SHARE =================
+
+function shareFile(fileName) {
+    const { data } = supabaseClient.storage
+        .from('files')
+        .getPublicUrl(currentUser + "/" + fileName);
+
+    navigator.clipboard.writeText(data.publicUrl);
+    alert("Линкът е копиран!");
 }
 
-// Delete
+// ================= DELETE =================
+
 async function deleteFile(fileName) {
     await supabaseClient.storage
         .from('files')
@@ -185,7 +211,8 @@ async function deleteFile(fileName) {
     loadFiles();
 }
 
-// Download
+// ================= DOWNLOAD =================
+
 async function downloadFile(url, fileName) {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -196,31 +223,20 @@ async function downloadFile(url, fileName) {
     a.click();
 }
 
-// Device
-function setDevice(type) {
-    document.body.classList.add(type);
-    document.getElementById("deviceSelector").style.display = "none";
-    localStorage.setItem("device", type);
-}
+// ================= SEARCH =================
 
-const savedDevice = localStorage.getItem("device");
-if (savedDevice) setDevice(savedDevice);
+document.getElementById("searchInput").addEventListener("input", loadFiles);
 
-// Drag
+// ================= DRAG DROP =================
+
 const dropZone = document.getElementById("dropZone");
 
 dropZone.addEventListener("dragover", e => {
     e.preventDefault();
-    dropZone.style.background = "#1e293b";
-});
-
-dropZone.addEventListener("dragleave", () => {
-    dropZone.style.background = "transparent";
 });
 
 dropZone.addEventListener("drop", async e => {
     e.preventDefault();
-    dropZone.style.background = "transparent";
 
     const file = e.dataTransfer.files[0];
     if (!file) return;
@@ -233,11 +249,6 @@ dropZone.addEventListener("drop", async e => {
 
     loadFiles();
 });
-
-// search live
-document.getElementById("searchInput").addEventListener("input", loadFiles);
-
-loadFiles();
 </script>
 
 </body>
