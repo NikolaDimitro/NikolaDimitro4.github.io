@@ -50,24 +50,30 @@ button {
 const supabaseUrl = "https://jniiizemwddovvufyxth.supabase.co";
 const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
 
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+/* ✅ ПРОМЯНА 1 */
+const { createClient } = supabase;
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 async function uploadFile() {
     const file = document.getElementById("fileInput").files[0];
     if (!file) return;
 
-    const { data, error } = await supabase.storage
+    /* ✅ ПРОМЯНА 2 */
+    const fileName = Date.now() + "_" + file.name;
+
+    const { data, error } = await supabaseClient.storage
         .from('files')
-        .upload(file.name, file);
+        .upload(fileName, file);
 
     if (error) {
         alert("Грешка: " + error.message);
+        console.error(error);
         return;
     }
 
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseClient.storage
         .from('files')
-        .getPublicUrl(file.name);
+        .getPublicUrl(fileName);
 
     const div = document.createElement("div");
     div.innerHTML = `<a href="${urlData.publicUrl}" target="_blank">${file.name}</a>`;
