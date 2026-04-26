@@ -9,7 +9,7 @@
 <style>
 body {
     font-family: Arial;
-    background: #0f172a;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
     color: white;
     text-align: center;
     padding: 40px;
@@ -21,6 +21,8 @@ body {
     border-radius: 15px;
     max-width: 500px;
     margin: auto;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
 }
 
 button {
@@ -32,6 +34,13 @@ button {
     margin: 5px;
 }
 
+.file {
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 10px;
+    margin: 10px;
+}
+
 .phone .container { max-width: 300px; font-size: 14px; }
 .tablet .container { max-width: 600px; font-size: 16px; }
 .pc .container { max-width: 900px; font-size: 18px; }
@@ -40,8 +49,8 @@ button {
 
 <body>
 
-<!-- Device selector -->
-<div id="deviceSelector" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
+<!-- Device -->
+<div id="deviceSelector" style="position:fixed; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
     <h2>Избери устройство</h2>
     <button onclick="setDevice('phone')">📱 Телефон</button>
     <button onclick="setDevice('tablet')">📟 Таблет</button>
@@ -49,7 +58,7 @@ button {
 </div>
 
 <!-- Login -->
-<div id="loginScreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
+<div id="loginScreen" style="position:fixed; width:100%; height:100%; background:#0f172a; display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:9999;">
     <h2>Вход</h2>
     <input id="username" placeholder="Име">
     <button onclick="login()">Влез</button>
@@ -59,8 +68,15 @@ button {
     <h1>☁️ My Cloud</h1>
 
     <input type="file" id="fileInput">
-    <br><br>
     <button onclick="uploadFile()">Качи</button>
+
+    <!-- Drag -->
+    <div id="dropZone" style="border:2px dashed #38bdf8; padding:20px; margin-top:20px;">
+        Пусни файл тук 📂
+    </div>
+
+    <!-- Search -->
+    <input id="searchInput" placeholder="🔍 Търси..." style="margin-top:15px; padding:10px; border-radius:10px; width:80%;">
 
     <h3>Файлове:</h3>
     <div id="links"></div>
@@ -87,7 +103,7 @@ function login() {
     loadFiles();
 }
 
-// запомнен user
+// user
 const savedUser = localStorage.getItem("user");
 if (savedUser) {
     currentUser = savedUser;
@@ -101,71 +117,70 @@ async function uploadFile() {
 
     const fileName = Date.now() + "_" + file.name;
 
-    const { error } = await supabaseClient.storage
+    await supabaseClient.storage
         .from('files')
         .upload(currentUser + "/" + fileName, file);
-
-    if (error) {
-        alert("Грешка: " + error.message);
-        return;
-    }
 
     loadFiles();
 }
 
-// Load files (само неговите)
+// Load
 async function loadFiles() {
     if (!currentUser) return;
 
-    const { data, error } = await supabaseClient.storage
+    const { data } = await supabaseClient.storage
         .from('files')
-        .list(currentUser, { limit: 100 });
+        .list(currentUser);
 
-    if (error) {
-        console.error(error);
-        return;
-    }
+    const search = document.getElementById("searchInput").value.toLowerCase();
 
     const container = document.getElementById("links");
     container.innerHTML = "";
 
-    data.forEach(file => {
+    data
+    .filter(file => file.name.toLowerCase().includes(search))
+    .forEach(file => {
+
+        // LOCK
+        const locked = localStorage.getItem("lock_" + file.name);
+        if (locked) {
+            const pass = prompt("Файлът е заключен:");
+            if (pass !== locked) return;
+        }
+
         const { data: urlData } = supabaseClient.storage
             .from('files')
             .getPublicUrl(currentUser + "/" + file.name);
 
         const url = urlData.publicUrl;
 
-        let preview = "";
-        if (file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-            preview = `<br><img src="${url}" style="max-width:100%; border-radius:10px;">`;
-        }
-
         const div = document.createElement("div");
+        div.className = "file";
+
         div.innerHTML = `
             <b>${file.name}</b><br>
             <a href="${url}" target="_blank">🔗 Отвори</a>
             <button onclick="downloadFile('${url}', '${file.name}')">⬇️ Изтегли</button>
+            <button onclick="lockFile('${file.name}')">🔐 Заключи</button>
             <button onclick="deleteFile('${file.name}')">🗑️ Изтрий</button>
-            ${preview}
         `;
 
         container.appendChild(div);
     });
 }
 
+// LOCK
+function lockFile(fileName) {
+    const pass = prompt("Парола:");
+    if (!pass) return;
+    localStorage.setItem("lock_" + fileName, pass);
+}
+
 // Delete
 async function deleteFile(fileName) {
-    if (!confirm("Сигурен ли си?")) return;
-
-    const { error } = await supabaseClient.storage
+    await supabaseClient.storage
         .from('files')
         .remove([currentUser + "/" + fileName]);
-
-    if (error) {
-        alert("Грешка: " + error.message);
-        return;
-    }
 
     loadFiles();
 }
@@ -178,29 +193,50 @@ async function downloadFile(url, fileName) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = fileName;
-
-    document.body.appendChild(a);
     a.click();
-    a.remove();
 }
 
 // Device
 function setDevice(type) {
-    document.body.classList.remove("phone", "tablet", "pc");
     document.body.classList.add(type);
-
     document.getElementById("deviceSelector").style.display = "none";
     localStorage.setItem("device", type);
 }
 
 const savedDevice = localStorage.getItem("device");
-if (savedDevice) {
-    setDevice(savedDevice);
-} else {
-    document.getElementById("deviceSelector").style.display = "flex";
-}
+if (savedDevice) setDevice(savedDevice);
 
-// старт
+// Drag
+const dropZone = document.getElementById("dropZone");
+
+dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropZone.style.background = "#1e293b";
+});
+
+dropZone.addEventListener("dragleave", () => {
+    dropZone.style.background = "transparent";
+});
+
+dropZone.addEventListener("drop", async e => {
+    e.preventDefault();
+    dropZone.style.background = "transparent";
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    const fileName = Date.now() + "_" + file.name;
+
+    await supabaseClient.storage
+        .from('files')
+        .upload(currentUser + "/" + fileName, file);
+
+    loadFiles();
+});
+
+// search live
+document.getElementById("searchInput").addEventListener("input", loadFiles);
+
 loadFiles();
 </script>
 
