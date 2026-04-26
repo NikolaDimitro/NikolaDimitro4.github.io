@@ -249,6 +249,20 @@ dropZone.addEventListener("drop", async e => {
 
     loadFiles();
 });
+function setDevice(type) {
+    document.body.className = type;
+
+    const el = document.getElementById("deviceSelector");
+    if (el) el.style.display = "none";
+
+    localStorage.setItem("device", type);
+}
+window.addEventListener("load", () => {
+    const savedDevice = localStorage.getItem("device");
+    if (savedDevice) {
+        setDevice(savedDevice);
+    }
+});
 </script>
 
 </body>
