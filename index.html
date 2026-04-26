@@ -50,15 +50,14 @@ button {
 const supabaseUrl = "https://jniiizemwddovvufyxth.supabase.co";
 const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
 
-/* ✅ ПРОМЯНА 1 */
 const { createClient } = supabase;
 const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
+// ✅ Качване
 async function uploadFile() {
     const file = document.getElementById("fileInput").files[0];
     if (!file) return;
 
-    /* ✅ ПРОМЯНА 2 */
     const fileName = Date.now() + "_" + file.name;
 
     const { data, error } = await supabaseClient.storage
@@ -71,14 +70,36 @@ async function uploadFile() {
         return;
     }
 
-    const { data: urlData } = supabaseClient.storage
-        .from('files')
-        .getPublicUrl(fileName);
-
-    const div = document.createElement("div");
-    div.innerHTML = `<a href="${urlData.publicUrl}" target="_blank">${file.name}</a>`;
-    document.getElementById("links").appendChild(div);
+    loadFiles(); // ✅ обновяване след качване
 }
+
+// ✅ Показване на файловете
+async function loadFiles() {
+    const { data, error } = await supabaseClient.storage
+        .from('files')
+        .list('', { limit: 100 });
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    const container = document.getElementById("links");
+    container.innerHTML = "";
+
+    data.forEach(file => {
+        const { data: urlData } = supabaseClient.storage
+            .from('files')
+            .getPublicUrl(file.name);
+
+        const div = document.createElement("div");
+        div.innerHTML = `<a href="${urlData.publicUrl}" target="_blank">${file.name}</a>`;
+        container.appendChild(div);
+    });
+}
+
+// ✅ зарежда файловете при отваряне
+loadFiles();
 </script>
 
 </body>
