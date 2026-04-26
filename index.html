@@ -30,6 +30,13 @@ button {
     border: none;
     cursor: pointer;
 }
+
+.file {
+    background: #334155;
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
+}
 </style>
 </head>
 
@@ -46,60 +53,6 @@ button {
     <div id="links"></div>
 </div>
 
-const supabaseUrl = "https://jniiizemwddovvufyxth.supabase.co";
-const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
-
-const { createClient } = supabase;
-const supabaseClient = createClient(supabaseUrl, supabaseKey);
-
-// ✅ Качване
-async function uploadFile() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return;
-
-    const fileName = Date.now() + "_" + file.name;
-
-    const { data, error } = await supabaseClient.storage
-        .from('files')
-        .upload(fileName, file);
-
-    if (error) {
-        alert("Грешка: " + error.message);
-        console.error(error);
-        return;
-    }
-
-    loadFiles(); // ✅ обновяване след качване
-}
-
-// ✅ Показване на файловете
-async function loadFiles() {
-    const { data, error } = await supabaseClient.storage
-        .from('files')
-        .list('', { limit: 100 });
-
-    if (error) {
-        console.error(error);
-        return;
-    }
-
-    const container = document.getElementById("links");
-    container.innerHTML = "";
-
-    data.forEach(file => {
-        const { data: urlData } = supabaseClient.storage
-            .from('files')
-            .getPublicUrl(file.name);
-
-        const div = document.createElement("div");
-        div.innerHTML = `<a href="${urlData.publicUrl}" target="_blank">${file.name}</a>`;
-        container.appendChild(div);
-    });
-}
-
-// ✅ зарежда файловете при отваряне
-loadFiles();
-</script>
 <script>
 const supabaseUrl = "https://jniiizemwddovvufyxth.supabase.co";
 const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
@@ -107,7 +60,7 @@ const supabaseKey = "sb_publishable_0Sk-PSSLViPEqkpjwEdCUQ_rqIg4Clz";
 const { createClient } = supabase;
 const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-// 📤 Качване (не съм пипал логиката ти, само добавих fileName)
+// Upload
 async function uploadFile() {
     const file = document.getElementById("fileInput").files[0];
     if (!file) return;
@@ -126,7 +79,7 @@ async function uploadFile() {
     loadFiles();
 }
 
-// 📂 Зареждане на файлове (НОВО)
+// Load files
 async function loadFiles() {
     const { data, error } = await supabaseClient.storage
         .from('files')
@@ -147,18 +100,12 @@ async function loadFiles() {
 
         const url = urlData.publicUrl;
 
-        const div = document.createElement("div");
-        div.style.margin = "10px";
-        div.style.padding = "10px";
-        div.style.background = "#334155";
-        div.style.borderRadius = "10px";
-
-        // 🖼️ preview
         let preview = "";
         if (file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-            preview = `<br><img src="${url}" style="max-width:100%; border-radius:10px;">`;
+            preview = `<br><img src="${url}" style="max-width:100%">`;
         }
 
+        const div = document.createElement("div");
         div.innerHTML = `
             <b>${file.name}</b><br>
             <a href="${url}" target="_blank">🔗 Отвори</a>
@@ -171,10 +118,9 @@ async function loadFiles() {
     });
 }
 
-// 🗑️ Триене (НОВО)
+// Delete
 async function deleteFile(fileName) {
-    const confirmDelete = confirm("Сигурен ли си?");
-    if (!confirmDelete) return;
+    if (!confirm("Сигурен ли си?")) return;
 
     const { error } = await supabaseClient.storage
         .from('files')
@@ -188,9 +134,8 @@ async function deleteFile(fileName) {
     loadFiles();
 }
 
-// 🚀 стартиране
 loadFiles();
 </script>
-
+    
 </body>
 </html>
